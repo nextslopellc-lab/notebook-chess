@@ -121,7 +121,104 @@ function buildSquares() {
     highlightLastMove(lastFrom,lastTo);
     cancelSelection();
     setStatus(`${move.san}. ${game.turn()==='w'?'White':'Black'} to move.`);
+    window.nb.applyCheckMateRings(game);
   }
+// ---------- Check / Checkmate Highlight Helpers ----------
+(function(){
+  const FILES = ['a','b','c','d','e','f','g','h'];
+
+  function elFor(squareStr){
+    return document.querySelector(`.square[data-square="${squareStr}"]`);
+  }
+
+  function findKingSquare(game, color){
+    for (let r = 1; r <= 8; r++){
+      for (let f = 0; f < 8; f++){
+        const sq = `${FILES[f]}${r}`;
+        const p = game.get?.(sq);
+        if (p && p.type === 'k' && p.color === color) return sq;
+      }
+    }
+    return null;
+  }
+
+  function clearCheckMateRings(){
+    document.querySelectorAll('.square.check, .square.mate')
+      .forEach(el => el.classList.remove('check','mate'));
+  }
+
+  // Exported to window.nb so we can call it from your existing flow
+  function applyCheckMateRings(game){
+    clearCheckMateRings();
+    if (!game || !game.turn) return;
+
+    if (game.in_checkmate?.()){
+      const loserColor = game.turn(); // side to move is mated
+      const ksq = findKingSquare(game, loserColor);
+      const el = ksq && elFor(ksq);
+      if (el) el.classList.add('mate');
+      setStatusSafe('Checkmate.');
+      return;
+    }
+    if (game.in_check?.()){
+      const inCheckColor = game.turn();
+      const ksq = findKingSquare(game, inCheckColor);
+      const el = ksq && elFor(ksq);
+      if (el) el.classList.add('check');
+      setStatusSafe('Check.');
+      return;
+    }
+    // else: no check — leave your normal status alone
+  }
+
+  function setStatusSafe(text){
+    const el = document.getElementById('status') || document.querySelector('.status');
+    if (el) el.textContent = text;
+  }
+
+  // expose
+  window.nb = Object.assign(window.nb || {}, { applyCheckMateRings });
+})();
+window.nb.applyCheckMateRings(game);
+
+// ---------- Minimal Menu / Resign ----------
+(function(){
+  const homeOverlay = document.getElementById('homeOverlay');
+  const menuBtn = document.getElementById('menuBtn');
+  const closeOverlay = document.getElementById('closeOverlay');
+  const resignBtn = document.getElementById('resignBtn');
+
+  function openOverlay(){ homeOverlay?.classList.remove('hidden'); homeOverlay?.setAttribute('aria-hidden','false'); }
+  function closeOverlayFn(){ homeOverlay?.classList.add('hidden'); homeOverlay?.setAttribute('aria-hidden','true'); }
+
+  menuBtn?.addEventListener('click', openOverlay);
+  closeOverlay?.addEventListener('click', closeOverlayFn);
+
+  resignBtn?.addEventListener('click', () => {
+    if (!confirm('Resign and return to menu?')) return;
+    openOverlay();
+  });
+
+  homeOverlay?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    if (action === 'continue-game'){
+      closeOverlayFn();
+    } else if (action === 'free-play'){
+      // Start a fresh game safely if you expose `game` globally.
+      if (window.game && window.Chess){
+        window.game = new window.Chess();
+        // call your own render / refresh methods here:
+        if (window.renderBoard) window.renderBoard();
+        if (window.nb?.applyCheckMateRings) window.nb.applyCheckMateRings(window.game);
+      }
+      closeOverlayFn();
+    } else {
+      alert('Coming soon!');
+    }
+  });
+})();
 
   // Events
   boardEl.addEventListener('click', e => {
