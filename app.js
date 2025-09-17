@@ -26,15 +26,9 @@
   };
 
   // Layout helpers
-  const S = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-size'));
-  const cellSize = () => S() / 8;
-  const posFor = (square) => {
-    const file = square[0], rank = square[1];
-    const x = FILES.indexOf(file);
-    const y = RANKS.indexOf(rank);
-    // bottom = rank 1 near bottom in standard white orientation
-    return { left: x * cellSize(), top: (7 - y) * cellSize() };
-  };
+const S = () => boardEl.getBoundingClientRect().width; // actual rendered width
+const cellSize = () => S() / 8;
+
 
   // Build squares once (absolute grid)
   function buildSquares() {
