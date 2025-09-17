@@ -31,15 +31,10 @@ body {
 }
 
 /* Checkerboard */
-.board::before{
-  content:"";
-  position:absolute; inset:0;
-  background:
-    linear-gradient(90deg, var(--light) 50%, var(--dark) 50%) 0 0 / calc(var(--sq)*2) calc(var(--sq)*2),
-    linear-gradient(     var(--light) 50%, var(--dark) 50%) 0 0 / calc(var(--sq)*2) calc(var(--sq)*2);
-  background-position: 0 0, var(--sq) var(--sq);
-  z-index:1;
-}
+.board::before { content:""; position:absolute; inset:0; z-index:1; background:none; }
+
+.square.light { background: var(--light); }
+.square.dark  { background: var(--dark); }
 
 /* Layers: background(1) < squares(2) < pieces(3) */
 .square { position:absolute; z-index:2; }   /* width/height set in JS */
