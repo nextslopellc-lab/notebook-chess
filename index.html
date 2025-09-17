@@ -10,17 +10,32 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <h1>Notebook Chess</h1>
-    <div class="controls">
-      <button id="btn-back" aria-label="Undo last move" title="Undo (←)">⟲ Back</button>
-      <button id="btn-reset" aria-label="Reset to start">↺ Reset</button>
-      <label class="toggle">
-        <input id="toggle-legal" type="checkbox" checked />
-        <span>Show legal targets</span>
-      </label>
-    </div>
-  </header>
+ <header class="topbar">
+  <button id="backBtn" aria-label="Back">⟲ Back</button>
+  <div class="spacer"></div>
+  <button id="menuBtn" aria-label="Menu">☰ Menu</button>
+  <button id="resignBtn" aria-label="Resign">🏳 Resign</button>
+  <!-- Removed: Reset & Show legal targets toggle -->
+</header>
+
+<!-- Lightweight overlay menu (non-disruptive placeholder) -->
+<div id="homeOverlay" class="overlay hidden" aria-hidden="true">
+  <div class="overlay-card">
+    <h2>Notebook Chess</h2>
+    <nav class="home-actions">
+      <button data-action="continue-game">Continue Game</button>
+      <button data-action="free-play">New Free Play</button>
+      <button data-action="puzzles" disabled>Puzzles (Soon)</button>
+      <button data-action="dash" disabled>3-Minute Dash (Soon)</button>
+      <button data-action="opening-coach" disabled>Opening Coach (Soon)</button>
+      <button data-action="notebook" disabled>Notebook (Soon)</button>
+    </nav>
+    <button id="closeOverlay">Close</button>
+  </div>
+</div>
+
+<!-- status line stays as-is -->
+
 
   <main class="stage">
     <div id="board" class="board" role="grid" aria-label="Chessboard">
