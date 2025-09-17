@@ -34,8 +34,13 @@
     Ready.
   </footer>
 
-  <!-- Local libs only -->
-  <script src="libs/chess.umd.js"></script>
+  <!-- Load chess.js (ESM) locally and expose as window.Chess for app.js -->
+  <script type="module">
+    import { Chess } from './libs/chess.mjs';
+    window.Chess = Chess;
+  </script>
+
+  <!-- Your app logic (expects window.Chess) -->
   <script defer src="app.js"></script>
 </body>
 </html>
