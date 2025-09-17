@@ -22,24 +22,25 @@
   };
 
   // Build 64 squares and size them from JS so CSS can't drift
-  function buildSquares() {
-    boardEl.querySelectorAll('.square').forEach(n => n.remove());
-    const c = cellSize();
-    for (let y = 0; y < 8; y++) {
-      for (let x = 0; x < 8; x++) {
-        const file = FILES[x], rank = RANKS[7 - y];
-        const name = `${file}${rank}`;
-        const sq = document.createElement('div');
-        sq.className = 'square';
-        sq.dataset.square = name;
-        sq.style.width = `${c}px`;
-        sq.style.height = `${c}px`;
-        sq.style.left = `${x * c}px`;
-        sq.style.top  = `${y * c}px`;
-        boardEl.appendChild(sq);
-      }
+function buildSquares() {
+  boardEl.querySelectorAll('.square').forEach(n => n.remove());
+  const c = cellSize();
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const file = FILES[x], rank = RANKS[7 - y];
+      const name = `${file}${rank}`;
+      const sq = document.createElement('div');
+      sq.className = 'square ' + ((x + y) % 2 ? 'dark' : 'light');  // ← add this
+      sq.dataset.square = name;
+      sq.style.width = `${c}px`;
+      sq.style.height = `${c}px`;
+      sq.style.left = `${x * c}px`;
+      sq.style.top  = `${y * c}px`;
+      boardEl.appendChild(sq);
     }
   }
+}
+
 
   function renderPieces() {
     piecesEl.innerHTML = '';
