@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>Notebook Chess — Phase 1</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Notebook Chess</h1>
+    <div class="controls">
+      <button id="btn-back" aria-label="Undo last move" title="Undo (←)">⟲ Back</button>
+      <button id="btn-reset" aria-label="Reset to start">↺ Reset</button>
+      <label class="toggle">
+        <input id="toggle-legal" type="checkbox" checked />
+        <span>Show legal targets</span>
+      </label>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div id="board" class="board" role="grid" aria-label="Chessboard">
+      <!-- 64 squares injected by JS -->
+      <div id="pieces" class="pieces" aria-hidden="true"></div>
+      <div id="hitlayer" class="hitlayer" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <footer class="statusbar" id="status">
+    Ready.
+  </footer>
+
+  <!-- Local libs only -->
+  <script src="libs/chess.umd.js"></script>
+  <script defer src="app.js"></script>
+</body>
+</html>
