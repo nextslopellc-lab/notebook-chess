@@ -41,9 +41,10 @@ button:active{ transform:translateY(1px); }
   content:"";
   position:absolute; inset:0;
   background:
-    linear-gradient(90deg, var(--light) 50%, var(--dark) 50%) 0 0 / var(--sq) var(--sq),
-    linear-gradient(90deg, var(--light) 50%, var(--dark) 50%) 0 var(--sq) / var(--sq) var(--sq);
-  mix-blend-mode:normal; opacity:1;
+    conic-gradient(from 90deg,
+      var(--light) 25%, var(--dark) 0 50%,
+      var(--light) 0 75%, var(--dark) 0) 0 0 / var(--sq) var(--sq);
+  opacity:1;
 }
 .pieces, .hitlayer{
   position:absolute; inset:0; pointer-events:none;
