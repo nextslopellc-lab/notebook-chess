@@ -31,11 +31,12 @@
   const S        = () => boardEl.getBoundingClientRect().width; // actual rendered width
   const cellSize = () => S() / 8;
   const posFor = (square) => {
-    const file = square[0], rank = square[1];
-    const x = FILES.indexOf(file);
-    const y = RANKS.indexOf(rank);
-    return { left: x * cellSize(), top: (7 - y) * cellSize() }; // rank 1 at bottom
-  };
+     const file = square[0], rank = square[1];
+     const x = FILES.indexOf(file);
+     const y = RANKS.indexOf(rank);
+     return { left: x * cellSize(), top: (8 - y) * cellSize() };
+};
+
 
   // ------- Squares (board layer) -------
   function buildSquares() {
@@ -64,7 +65,7 @@
     document.querySelectorAll('.square').forEach(el => {
       const sq = el.dataset.square;
       const x = FILES.indexOf(sq[0]);
-      const y = 7 - RANKS.indexOf(sq[1]);
+      const y = RANKS.indexOf(sq[1]);
       el.style.left = `${x * cellSize()}px`;
       el.style.top  = `${y * cellSize()}px`;
     });
