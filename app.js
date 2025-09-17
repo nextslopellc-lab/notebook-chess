@@ -59,7 +59,12 @@
       el.dataset.square = square;
       el.dataset.color = piece.color;
       el.dataset.type = piece.type;
-      el.textContent = UNICODE[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+
+      // 👉 Wrap the glyph in a <span>
+      const span = document.createElement('span');
+      span.textContent = UNICODE[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+      el.appendChild(span);
+
       piecesEl.appendChild(el);
     }
     el.style.left = `${left}px`;
