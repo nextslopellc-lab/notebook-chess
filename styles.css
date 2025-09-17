@@ -73,10 +73,16 @@ body {
   height: var(--sq);
   display: grid;
   place-items: center;
-  font-size: calc(var(--sq) * .72);
+  font-size: calc(var(--sq) * .8);
   user-select: none;
+  pointer-events: none;   /* 👈 ADD THIS */
   transition: top .18s ease, left .18s ease;
 }
+.piece span {
+  font-family: "Arial Unicode MS", "DejaVu Sans", sans-serif;
+  line-height: 1;
+}
+
 .piece.white { color: #fafafa; }
 .piece.black { color: #1b1f2a; }
 
