@@ -36,7 +36,8 @@ body {
   background:
     conic-gradient(from 90deg,
       var(--light) 25%, var(--dark) 0 50%,
-      var(--light) 0 75%, var(--dark) 0) 0 0 / 100% 100%;
+      var(--light) 0 75%, var(--dark) 0)
+    0 0 / var(--sq) var(--sq);  /* ← tile at 1 square */
   z-index: 1;
 }
 
