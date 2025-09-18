@@ -28,9 +28,6 @@
   const homeOverlay  = el('#homeOverlay');
   const closeOverlay = el('#closeOverlay');
 
-  const homeOverlay  = document.getElementById('homeOverlay');
-  const closeOverlay = document.getElementById('closeOverlay');
-
 // Force hidden on boot (prevents overlay from blocking clicks)
   homeOverlay?.classList.add('hidden');
   homeOverlay?.setAttribute('aria-hidden', 'true');
@@ -87,6 +84,15 @@
       alert('Coming soon!');
     }
   });
+  
+function openOverlay(){
+  homeOverlay?.classList.remove('hidden');
+  homeOverlay?.setAttribute('aria-hidden', 'false');
+}
+function closeOverlayFn(){
+  homeOverlay?.classList.add('hidden');
+  homeOverlay?.setAttribute('aria-hidden', 'true');
+}
 
   /* ---------- events ---------- */
   function onBoardClick(e){
@@ -224,23 +230,21 @@
     $all('.square.last-to').forEach(n => n.classList.remove('last-to'));
   }
 
-  function applyCheckMateRings(){
-    clearCheckMateRings();
-    if (game.in_checkmate?.()){
-      const mated = game.turn(); // side to move is mated
-      const ksq = findKingSquare(mated);
-      if (ksq) squareEl(ksq)?.classList.add('mate');
-      setStatus('Checkmate.');
-      return;
-    }
-    if (game.in_check?.()){
-      const side = game.turn();
-      const ksq = findKingSquare(side);
-      if (ksq) squareEl(ksq)?.classList.add('check');
-      setStatus('Check.');
-      return;
-    }
+function applyCheckMateRings(){
+  clearCheckMateRings();
+  if (game.isCheckmate && game.isCheckmate()){
+    const ksq = findKingSquare(game.turn());
+    if (ksq) squareEl(ksq)?.classList.add('mate');
+    setStatus('Checkmate.');
+    return;
   }
+  if (game.isCheck && game.isCheck()){
+    const ksq = findKingSquare(game.turn());
+    if (ksq) squareEl(ksq)?.classList.add('check');
+    setStatus('Check.');
+  }
+}
+  
   function clearCheckMateRings(){
     $all('.square.check').forEach(n => n.classList.remove('check'));
     $all('.square.mate').forEach(n => n.classList.remove('mate'));
@@ -377,11 +381,13 @@
 
   function setStatus(text){ if (statusEl) statusEl.textContent = text || ''; }
   function turnText(){ return game.turn() === 'w' ? 'White' : 'Black'; }
+  
   function setStatusDefault(){
-    if (game.in_checkmate()) return;                 // already set “Checkmate.”
-    if (game.in_draw && game.in_draw()) { setStatus('Draw.'); return; }
+    if (game.isCheckmate && game.isCheckmate()) return; // already set “Checkmate.”
+    if (game.isDraw && game.isDraw()) { setStatus('Draw.'); return; }
     setStatus(`${turnText()} to move.`);
   }
+  
   function statusFlash(msg, ms=900){
     setStatus(msg);
     clearTimeout(statusFlash._t);
