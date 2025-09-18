@@ -4,14 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Notebook Chess — Phase 1</title>
- <link rel="stylesheet" href="styles.css?v=dot-over-1" />
-<script defer src="app.js?v=dot-over-1"></script>
-    import { Chess } from './libs/chess.mjs';
+  <link rel="stylesheet" href="styles.css?v=dot-over-2" />
+  <script type="module">
+    import { Chess } from './libs/chess.mjs?v=dot-over-2';
     window.Chess = Chess;
   </script>
-  <script defer src="app.js"></script>
+  <script defer src="app.js?v=dot-over-2"></script>
 </head>
-<body>
+
+  <body>
   <header class="topbar">
     <button id="backBtn" aria-label="Back">⟲ Back</button>
     <div class="spacer"></div>
