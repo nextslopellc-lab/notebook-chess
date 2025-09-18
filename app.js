@@ -53,7 +53,7 @@
   setStatus('Ready.');
 
   // Event wiring
-  squaresLayer.addEventListener('click', onSquareClick, { passive: true });
+  boardEl.addEventListener('click', onBoardClick, { passive: true });
   window.addEventListener('resize', onResize, { passive: true });
 
   // Undo / Back
@@ -88,48 +88,46 @@
   });
 
   // ---------------------------- Event handlers -------------------------------
-  function onSquareClick(e) {
-    const sqEl = e.target.closest('.square');
-    if (!sqEl) return;
+ function onBoardClick(e) {
+  // Try DOM target first (ideal path)
+  let sqEl = e.target.closest?.('.square');
+  let sq = sqEl?.dataset?.square;
 
-    const sq = sqEl.dataset.square; // like "e4"
-    if (!sq) return;
+  // Fallback if clicks hit the piece layer or any sibling/child:
+  if (!sq) {
+    sq = squareFromEvent(e);
+    if (sq) sqEl = squareEl(sq);
+  }
+  if (!sq) return; // clicked outside the 8x8 area
 
-    // If nothing selected yet, try selecting a piece of side-to-move
-    if (!selectedFrom) {
-      const piece = game.get(sq);
-      if (!piece || piece.color !== game.turn()) {
-        flashIllegal(sqEl);
-        return;
-      }
-      selectedFrom = sq;
-      showLegalTargets(selectedFrom); // ALWAYS ON
-      return;
-    }
-
-    // If something is selected, try to move to clicked square
-    if (selectedFrom === sq) {
-      // Tapping the same square cancels selection
-      selectedFrom = null;
-      clearLegalTargets();
-      return;
-    }
-
-    // Attempt move (chess.js will validate pins, checks, etc.)
-    const move = game.move({ from: selectedFrom, to: sq, promotion: 'q' });
-    if (!move) {
-      // illegal: keep selection but give light feedback
+  // Selection / move flow (unchanged)
+  if (!selectedFrom) {
+    const piece = game.get(sq);
+    if (!piece || piece.color !== game.turn()) {
       flashIllegal(sqEl);
       return;
     }
+    selectedFrom = sq;
+    showLegalTargets(selectedFrom); // ALWAYS ON
+    return;
+  }
 
-    // Legal move
+  if (selectedFrom === sq) {
     selectedFrom = null;
     clearLegalTargets();
-
-    // Animate + sync
-    animateAndSync(move);
+    return;
   }
+
+  const move = game.move({ from: selectedFrom, to: sq, promotion: 'q' });
+  if (!move) {
+    flashIllegal(sqEl);
+    return;
+  }
+
+  selectedFrom = null;
+  clearLegalTargets();
+  animateAndSync(move);
+}
 
   function onUndo() {
     const undone = game.undo();
@@ -424,6 +422,17 @@
     const rank = parseInt(square[1], 10) - 1; // '1' -> 0
     return [file, rank];
   }
+  function squareFromEvent(e) {
+    const r = boardEl.getBoundingClientRect();
+    const cell = currentCell();
+    const x = Math.floor((e.clientX - r.left) / cell);
+    const yFromTop = Math.floor((e.clientY - r.top) / cell);
+  // Our board uses top-origin, ranks grow upward from bottom:
+    const y = 7 - yFromTop;
+
+    if (x < 0 || x > 7 || y < 0 || y > 7) return null;
+    return FILES[x] + (y + 1); // e.g., "e4"
+}
 
   function squareEl(sq) {
     return document.querySelector(`.square[data-square="${sq}"]`);
