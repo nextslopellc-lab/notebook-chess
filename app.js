@@ -1,21 +1,22 @@
 /* ============================================================================
-  Notebook Chess - Baseline (stable dev)
-  - Plain JS, no frameworks. Uses window.Chess set by index.html loader.
-  - Absolute-positioned squares; Unicode pieces.
-  - Tap-to-move; legal targets rendered as CENTER DOTS over the pieces layer,
+  Notebook Chess - Stable Baseline (no engine)
+  - Plain JS, no frameworks. Uses window.Chess from libs/chess.mjs (index.html).
+  - Absolute-positioned squares; Unicode pieces (DOM: .piece > span).
+  - Input: tap-to-move; legal targets rendered as CENTER DOTS in the pieces layer,
     so dots are visible on empty AND occupied squares.
-  - Last-move highlights; check/mate ring; undo; status messages.
-  - No optional chaining (old parsers choke on it). No service worker. No CDNs.
+  - UX: last-move highlight; check/mate ring; status messages; undo/back.
+  - Overlay menu: Continue / New Free Play (others TBD).
+  - No optional chaining; no service worker; all local.
 ============================================================================ */
 (function () {
-  // ---------- tiny DOM helpers ----------
+  /* ---------- tiny DOM helpers ---------- */
   function el(sel, root) { return (root || document).querySelector(sel); }
   function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
-  // ---------- constants ----------
+  /* ---------- constants ---------- */
   var FILES = ['a','b','c','d','e','f','g','h'];
 
-  // ---------- refs ----------
+  /* ---------- refs ---------- */
   var boardEl      = el('#board');
   var squaresLayer = el('.squares');
   var piecesLayer  = el('.pieces');
@@ -26,25 +27,33 @@
 
   var homeOverlay  = el('#homeOverlay');
   var closeOverlay = el('#closeOverlay');
-  if (homeOverlay) { homeOverlay.classList.add('hidden'); homeOverlay.setAttribute('aria-hidden', 'true'); }
+
+  // Prevent overlay from blocking clicks on first paint
+  if (homeOverlay) {
+    homeOverlay.classList.add('hidden');
+    homeOverlay.setAttribute('aria-hidden', 'true');
+  }
 
   var statusEl = el('#status');
 
-  // ---------- chess lib guard ----------
+  /* ---------- chess lib guard ---------- */
   var ChessCtor = window.Chess;
   if (typeof ChessCtor !== 'function') {
     if (statusEl) statusEl.textContent = 'Error: chess library failed to load.';
-    console.error('Chess library not available.');
+    console.error('Chess library not available. Ensure libs/chess.mjs loads before app.js.');
     return;
   }
+
+  /* ---------- state ---------- */
   var game = new ChessCtor();
-  window.game = game; // for console/debug
+  window.game = game; // console / debugging
 
-  // ---------- selection & last-move ----------
-  var selectedFrom = null;      // "e2"
-  var lastMove = null;          // { from, to }
+  var selectedFrom = null; // "e2"
+  var lastMove = null;     // { from, to }
 
-  // ---------- boot ----------
+  /* =========================================================================
+     BOOT
+  ========================================================================= */
   buildBoardIfNeeded();
   layoutBoard();
   renderAllPieces();
@@ -52,39 +61,43 @@
   applyCheckMateRings();
   setStatusDefault();
 
-  // robust click handling: listen on squares layer
+  // clicks/resize
   (squaresLayer || boardEl).addEventListener('click', onBoardClick, false);
   window.addEventListener('resize', onResize, false);
 
-  // Undo (button + ArrowLeft)
+  // undo: Back button + ArrowLeft
   if (backBtn) backBtn.addEventListener('click', onUndo, false);
   window.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') onUndo();
   }, false);
 
-  // Overlay/menu wiring (simple, non-blocking)
-  if (menuBtn) menuBtn.addEventListener('click', openOverlay, false);
+  // overlay wiring
+  if (menuBtn)   menuBtn.addEventListener('click', openOverlay,  false);
   if (closeOverlay) closeOverlay.addEventListener('click', closeOverlayFn, false);
   if (resignBtn) resignBtn.addEventListener('click', function () {
     if (!confirm('Resign and return to menu?')) return;
     openOverlay();
   }, false);
-  if (homeOverlay) homeOverlay.addEventListener('click', function (e) {
-    var btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
-    if (!btn) return;
-    var action = btn.getAttribute('data-action');
-    if (action === 'continue-game') {
-      closeOverlayFn();
-    } else if (action === 'free-play') {
-      game = new ChessCtor();
-      window.game = game;
-      selectedFrom = null; lastMove = null;
-      rerenderEverything();
-      closeOverlayFn();
-    } else {
-      alert('Coming soon!');
-    }
-  }, false);
+
+  if (homeOverlay) {
+    homeOverlay.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
+      if (action === 'continue-game') {
+        closeOverlayFn();
+      } else if (action === 'free-play') {
+        game = new ChessCtor();
+        window.game = game;
+        selectedFrom = null;
+        lastMove = null;
+        rerenderEverything();
+        closeOverlayFn();
+      } else {
+        alert('Coming soon!');
+      }
+    }, false);
+  }
 
   function openOverlay(){
     if (!homeOverlay) return;
@@ -97,20 +110,22 @@
     homeOverlay.setAttribute('aria-hidden', 'true');
   }
 
-  // ---------- events ----------
+  /* =========================================================================
+     EVENTS
+  ========================================================================= */
   function onBoardClick(e) {
-    // hit-test for .square
+    // Try to hit a .square
     var sqEl = e.target && e.target.closest ? e.target.closest('.square') : null;
     var sq = sqEl && sqEl.dataset ? sqEl.dataset.square : null;
 
+    // Fallback: math hit test (in case some overlay eats the click)
     if (!sq) {
-      // fallback: math hit-test if somehow missed squares layer
       sq = squareFromEvent(e);
       if (sq) sqEl = squareEl(sq);
     }
     if (!sq) return;
 
-    // no selection -> select own piece
+    // No selection yet -> must touch own piece
     if (!selectedFrom) {
       var piece = game.get(sq);
       if (!piece || piece.color !== game.turn()) {
@@ -119,12 +134,12 @@
         return;
       }
       selectedFrom = sq;
-      showLegalTargets(selectedFrom);
+      showLegalTargets(selectedFrom); // always on
       setStatus(pieceName(piece) + ' on ' + sq);
       return;
     }
 
-    // tapped same square -> cancel
+    // Tapped same square -> cancel selection
     if (selectedFrom === sq) {
       selectedFrom = null;
       clearLegalTargets();
@@ -132,11 +147,9 @@
       return;
     }
 
-    // attempt move
+    // Try to move
     var m = null;
-    try {
-      m = game.move({ from: selectedFrom, to: sq, promotion: 'q' });
-    } catch (_) { m = null; }
+    try { m = game.move({ from: selectedFrom, to: sq, promotion: 'q' }); } catch (_) { m = null; }
 
     if (!m) {
       flashIllegal(sqEl);
@@ -144,13 +157,13 @@
       return;
     }
 
-    // success
+    // Success
     selectedFrom = null;
     clearLegalTargets();
     animateAndSync(m);
   }
 
-  function onUndo() {
+  function onUndo(){
     var undone = game.undo();
     if (!undone) { flashIllegal(boardEl); return; }
     selectedFrom = null;
@@ -158,10 +171,12 @@
     rerenderEverything();
   }
 
-  // ---------- layout & render ----------
+  /* =========================================================================
+     LAYOUT & RENDER
+  ========================================================================= */
   function buildBoardIfNeeded(){
-    if (squaresLayer && squaresLayer.childElementCount === 64) return;
     if (!squaresLayer) return;
+    if (squaresLayer.childElementCount === 64) return;
     squaresLayer.innerHTML = '';
     for (var rank = 8; rank >= 1; rank--){
       for (var f = 0; f < 8; f++){
@@ -179,7 +194,8 @@
   function layoutBoard(){
     var size = boardEl ? (Math.min(boardEl.clientWidth || 0, boardEl.clientHeight || 0) || boardEl.getBoundingClientRect().width) : 0;
     var cell = size / 8;
-    // place squares
+
+    // position squares
     if (squaresLayer) {
       var nodes = squaresLayer.children;
       for (var i = 0; i < nodes.length; i++){
@@ -192,7 +208,8 @@
         node.style.height = cell + 'px';
       }
     }
-    // place pieces + dots
+
+    // position pieces + any visible dots
     positionAllPieceNodes(cell);
     positionAllDots(cell);
   }
@@ -223,7 +240,10 @@
     setStatusDefault();
   }
 
-  // ---------- legal target dots (overlay, above pieces) ----------
+  /* =========================================================================
+     LEGAL TARGET DOTS (overlay in pieces layer, above pieces)
+     - No CSS required; styled inline so capture squares also show a dot.
+  ========================================================================= */
   function showLegalTargets(fromSq){
     clearLegalTargets();
     var moves = game.moves({ square: fromSq, verbose: true }) || [];
@@ -233,8 +253,18 @@
       var dot = document.createElement('div');
       dot.className = 'legal-dot';
       dot.dataset.square = to;
+
+      // inline style (keeps styles.css unchanged)
+      dot.style.position = 'absolute';
+      dot.style.zIndex = '4';
+      dot.style.borderRadius = '50%';
+      dot.style.background = '#000';
+      dot.style.opacity = '0.9';
+      dot.style.pointerEvents = 'none';
+      // size/position
       placeDotAt(dot, to, cell);
-      piecesLayer.appendChild(dot); // above pieces
+
+      piecesLayer.appendChild(dot);
     }
   }
   function clearLegalTargets(){
@@ -243,11 +273,12 @@
   }
   function placeDotAt(node, square, cell){
     var xy = sqToXY(square);
-    node.style.left   = ((xy[0] + 0.5) * cell) + 'px';
-    node.style.top    = ((7 - xy[1] + 0.5) * cell) + 'px';
+    node.style.left = ((xy[0] + 0.5) * cell) + 'px';
+    node.style.top  = ((7 - xy[1] + 0.5) * cell) + 'px';
     var d = cell * 0.26;
-    node.style.width  = d + 'px';
+    node.style.width = d + 'px';
     node.style.height = d + 'px';
+    node.style.transform = 'translate(-50%, -50%)';
   }
   function positionAllDots(cell){
     var nodes = $all('.legal-dot', piecesLayer);
@@ -257,16 +288,20 @@
     }
   }
 
-  // ---------- move animation & sync ----------
+  /* =========================================================================
+     MOVES / ANIMATION / HIGHLIGHTS
+  ========================================================================= */
   function animateAndSync(move){
+    // record last move
     lastMove = { from: move.from, to: move.to };
+
     var cell = currentCell();
 
-    // remove captured node if present (so the mover can animate into the square)
+    // if capture, remove captured node first so animation looks clean
     var capturedNode = piecesLayer.querySelector('.piece[data-square="' + move.to + '"]');
     if (capturedNode) capturedNode.remove();
 
-    // handle castling rook animation (if available on this Chess build)
+    // handle castling rook animation (where supported on current chess.js)
     try {
       if (typeof move.isKingsideCastle === 'function' && move.isKingsideCastle()){
         var rf = (move.color === 'w') ? 'h1' : 'h8';
@@ -281,7 +316,7 @@
       }
     } catch(_) {}
 
-    // move the piece node from -> to (animates via CSS)
+    // move the piece node (CSS transition handles smoothness)
     var movedNode = piecesLayer.querySelector('.piece[data-square="' + move.from + '"]');
     var nowAtTo = game.get(move.to); // after game.move, board is updated
     if (movedNode && nowAtTo){
@@ -293,7 +328,7 @@
       placePieceNode(movedNode, move.to, cell);
     }
 
-    // after short delay, hard-sync in case of promotions/en passant etc.
+    // small delay: resync pieces + highlights (promotion/EP etc.)
     setTimeout(function(){
       renderAllPieces();
       clearLastMoveHighlight();
@@ -304,7 +339,46 @@
     }, 120);
   }
 
-  // ---------- layout utils ----------
+  // last-move highlight
+  function applyLastMoveHighlight(){
+    if (!lastMove) return;
+    var a = squareEl(lastMove.from); if (a) a.classList.add('last-from');
+    var b = squareEl(lastMove.to);   if (b) b.classList.add('last-to');
+  }
+  function clearLastMoveHighlight(){
+    var a = $all('.square.last-from'); for (var i=0;i<a.length;i++) a[i].classList.remove('last-from');
+    var b = $all('.square.last-to');   for (var j=0;j<b.length;j++) b[j].classList.remove('last-to');
+  }
+
+  // check / mate rings
+  function applyCheckMateRings(){
+    clearCheckMateRings();
+    var inMate  = (typeof game.isCheckmate === 'function') ? game.isCheckmate() : (game.in_checkmate ? game.in_checkmate() : false);
+    var inCheck = (typeof game.isCheck     === 'function') ? game.isCheck()     : (game.in_check     ? game.in_check()     : false);
+
+    if (inMate){
+      var matedColor = game.turn(); // side to move is mated
+      var ksqM = findKingSquare(matedColor);
+      if (ksqM) { var mEl = squareEl(ksqM); if (mEl) mEl.classList.add('mate'); }
+      setStatus('Checkmate.');
+      return;
+    }
+    if (inCheck){
+      var side = game.turn();
+      var ksq = findKingSquare(side);
+      if (ksq) { var cEl = squareEl(ksq); if (cEl) cEl.classList.add('check'); }
+      setStatus('Check.');
+      return;
+    }
+  }
+  function clearCheckMateRings(){
+    var c = $all('.square.check'); for (var i=0;i<c.length;i++) c[i].classList.remove('check');
+    var m = $all('.square.mate');  for (var j=0;j<m.length;j++) m[j].classList.remove('mate');
+  }
+
+  /* =========================================================================
+     LAYOUT UTILS
+  ========================================================================= */
   function onResize(){ layoutBoard(); }
 
   function currentCell(){
@@ -334,8 +408,8 @@
     var d = document.createElement('div');
     d.className = 'piece ' + (p.color === 'w' ? 'white' : 'black');
     d.dataset.square = square;
-    d.dataset.type = p.type;
-    d.dataset.color = p.color;
+    d.dataset.type   = p.type;
+    d.dataset.color  = p.color;
     var span = document.createElement('span');
     span.textContent = unicodeFor(p);
     d.appendChild(span);
@@ -362,7 +436,7 @@
     var r = boardEl.getBoundingClientRect();
     var cell = currentCell();
     var x = Math.floor((e.clientX - r.left) / cell);
-    var yFromTop = Math.floor((e.clientY - r.top)  / cell);
+    var yFromTop = Math.floor((e.clientY - r.top) / cell);
     var y = 7 - yFromTop;
     if (x < 0 || x > 7 || y < 0 || y > 7) return null;
     return FILES[x] + (y + 1);
@@ -379,42 +453,19 @@
     return null;
   }
 
-  // ---------- highlights ----------
-  function applyLastMoveHighlight(){
-    if (!lastMove) return;
-    var a = squareEl(lastMove.from); if (a) a.classList.add('last-from');
-    var b = squareEl(lastMove.to);   if (b) b.classList.add('last-to');
-  }
-  function clearLastMoveHighlight(){
-    var a = $all('.square.last-from'); for (var i=0;i<a.length;i++) a[i].classList.remove('last-from');
-    var b = $all('.square.last-to');   for (var j=0;j<b.length;j++) b[j].classList.remove('last-to');
-  }
-
-  function applyCheckMateRings(){
-    clearCheckMateRings();
-    if (game.isCheckmate && game.isCheckmate()){
-      var k1 = findKingSquare(game.turn());
-      if (k1) { var n1 = squareEl(k1); if (n1) n1.classList.add('mate'); }
-      setStatus('Checkmate.');
-      return;
-    }
-    if (game.isCheck && game.isCheck()){
-      var k2 = findKingSquare(game.turn());
-      if (k2) { var n2 = squareEl(k2); if (n2) n2.classList.add('check'); }
-      setStatus('Check.');
-    }
-  }
-  function clearCheckMateRings(){
-    var a = $all('.square.check'); for (var i=0;i<a.length;i++) a[i].classList.remove('check');
-    var b = $all('.square.mate');  for (var j=0;j<b.length;j++) b[j].classList.remove('mate');
-  }
-
-  // ---------- status ----------
+  /* =========================================================================
+     STATUS / UX
+  ========================================================================= */
   function setStatus(text){ if (statusEl) statusEl.textContent = text || ''; }
   function turnText(){ return game.turn() === 'w' ? 'White' : 'Black'; }
   function setStatusDefault(){
-    if (game.isCheckmate && game.isCheckmate()) return; // already set
-    if (game.isDraw && game.isDraw()) { setStatus('Draw.'); return; }
+    // honor any previous explicit "Checkmate." set by applyCheckMateRings()
+    var inMate = (typeof game.isCheckmate === 'function') ? game.isCheckmate() : (game.in_checkmate ? game.in_checkmate() : false);
+    if (inMate) return;
+    if (typeof game.isDraw === 'function' ? game.isDraw() : (game.in_draw && game.in_draw())) {
+      setStatus('Draw.');
+      return;
+    }
     setStatus(turnText() + ' to move.');
   }
   function statusFlash(msg, ms){
