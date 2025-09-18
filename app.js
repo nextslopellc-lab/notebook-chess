@@ -28,6 +28,14 @@
   const homeOverlay  = el('#homeOverlay');
   const closeOverlay = el('#closeOverlay');
 
+  const homeOverlay  = document.getElementById('homeOverlay');
+  const closeOverlay = document.getElementById('closeOverlay');
+
+// Force hidden on boot (prevents overlay from blocking clicks)
+  homeOverlay?.classList.add('hidden');
+  homeOverlay?.setAttribute('aria-hidden', 'true');
+
+
   const statusEl = el('#status');
 
   const Chess = window.Chess;
