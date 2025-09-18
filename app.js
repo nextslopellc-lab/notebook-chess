@@ -256,3 +256,27 @@ window.nb.applyCheckMateRings(game);
   }
   init();
 })();
+// ---- LEGAL MOVE DOTS (class-based, matches CSS .square.target::after) ----
+(function(){
+  const FILES = ['a','b','c','d','e','f','g','h'];
+  function elFor(squareStr){ return document.querySelector(`.square[data-square="${squareStr}"]`); }
+  function clearLegalTargets(){
+    document.querySelectorAll('.square.target').forEach(el => el.classList.remove('target'));
+  }
+  function addLegalTargetsFromSquare(fromSquare){
+    if (!window.game || !window.game.moves) return;
+    clearLegalTargets();
+    // chess.js verbose moves to get destination squares
+    const moves = window.game.moves({ square: fromSquare, verbose: true }) || [];
+    moves.forEach(m => {
+      const el = elFor(m.to);
+      if (el) el.classList.add('target');
+    });
+  }
+  // expose helpers so you can call them from your existing handlers
+  window.nb = Object.assign(window.nb || {}, {
+    clearLegalTargets,
+    addLegalTargetsFromSquare
+  });
+})();
+
