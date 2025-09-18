@@ -105,10 +105,12 @@
     const piece = game.get(sq);
     if (!piece || piece.color !== game.turn()) {
       flashIllegal(sqEl);
+      statusFlash(`${(game.turn()==='w'?'White':'Black')} to move.`, 900);
       return;
     }
     selectedFrom = sq;
     showLegalTargets(selectedFrom); // ALWAYS ON
+    window.nb?._statusOnSelect?.(selectedFrom);
     return;
   }
 
@@ -121,6 +123,7 @@
   const move = game.move({ from: selectedFrom, to: sq, promotion: 'q' });
   if (!move) {
     flashIllegal(sqEl);
+    window.nb?._statusFlashIllegal?.();
     return;
   }
 
@@ -471,6 +474,42 @@
   function closeOverlayFn() {
     homeOverlay?.classList.add('hidden');
     homeOverlay?.setAttribute('aria-hidden', 'true');
+  }
+// ===== Status helpers (augment UI feedback) =====
+(function(){
+  function statusFlash(msg, ms=900){
+    if (typeof setStatus === 'function') setStatus(msg);
+    clearTimeout(statusFlash._t);
+    statusFlash._t = setTimeout(() => {
+      if (typeof setStatusDefault === 'function') setStatusDefault();
+    }, ms);
+  }
+  function pieceName(p){ const n={p:'Pawn',r:'Rook',n:'Knight',b:'Bishop',q:'Queen',k:'King'}; return n[p?.type]||'?'; }
+  function turnText(){ return (window.game?.turn?.() === 'w') ? 'White' : 'Black'; }
+
+  // Try to hook into the refactor’s handlers if they exist
+  if (typeof window !== 'undefined'){
+    // 1) Selection feedback:
+    // Replace selection line in onBoardClick if you want richer text:
+    // after you do: selectedFrom = sq; showLegalTargets(selectedFrom);
+    // add:
+    window.nb = Object.assign(window.nb || {}, {
+      _statusOnSelect(sq){
+        try{
+          const piece = window.game.get(sq);
+          const moves = window.game.moves({ square: sq }) || [];
+          if (typeof setStatus === 'function'){
+            setStatus(`${pieceName(piece)} on ${sq}: ${moves.length} legal move${moves.length===1?'':'s'}.`);
+          }
+        }catch{}
+      },
+      _statusFlashIllegal(){
+        statusFlash('Illegal move', 1000);
+      },
+      _statusTurn(){
+        if (typeof setStatus === 'function') setStatus(`${turnText()} to move.`);
+      }
+    });
   }
 
   // ----------------------------- Expose (debug) ------------------------------
