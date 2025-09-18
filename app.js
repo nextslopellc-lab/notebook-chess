@@ -92,6 +92,7 @@ function buildSquares() {
   }
   function clearLastMove() { document.querySelectorAll('.highlight-last').forEach(n => n.classList.remove('highlight-last')); }
   function highlightLastMove(from,to) { clearLastMove(); squareEl(from)?.classList.add('highlight-last'); squareEl(to)?.classList.add('highlight-last'); }
+window.nb.clearLegalTargets();
 
   function selectSquare(sq) {
     const piece = game.get(sq);
@@ -100,6 +101,8 @@ function buildSquares() {
     selected = sq;
     legalTargets = game.moves({ square: sq, verbose: true }).map(m => m.to);
     paintSelection();
+    window.nb.addLegalTargetsFromSquare(selectedFrom);
+
   }
 
   function paintSelection() {
@@ -107,7 +110,8 @@ function buildSquares() {
     if (!selected) return;
     squareEl(selected)?.classList.add('highlight-from');
     if (toggleLegal?.checked) legalTargets.forEach(t => squareEl(t)?.classList.add('highlight-target'));
-  }
+     window.nb.clearLegalTargets();
+ }
 
   function cancelSelection(){ selected=null; legalTargets=[]; clearHighlights(); }
 
