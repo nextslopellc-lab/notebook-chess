@@ -35,9 +35,15 @@
 
   const statusEl = el('#status');
 
-  const Chess = window.Chess;
-  let game = new Chess();
+  const ChessCtor = window.Chess;
+  if (typeof ChessCtor !== 'function') {
+    console.error('Chess library not available yet.');
+    document.getElementById('status')?.textContent = 'Error: failed to load chess library.';
+    return; // stop boot so we don’t crash before building the board
+  }
+  let game = new ChessCtor();
   window.game = game; // expose for console/debug
+
 
   /* ---------- selection & last-move ---------- */
   let selectedFrom = null;       // "e2"
