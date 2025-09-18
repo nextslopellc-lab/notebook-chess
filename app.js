@@ -183,6 +183,7 @@ function closeOverlayFn(){
     }
     // Place current pieces
     positionAllPieceNodes(cell);
+    positionAllDots(cell);
   }
 
   function renderAllPieces(){
@@ -212,13 +213,31 @@ function closeOverlayFn(){
 
   /* ---------- highlights ---------- */
   function showLegalTargets(fromSq){
-    clearLegalTargets();
-    const moves = game.moves({ square: fromSq, verbose:true }) || [];
-    for (const m of moves) squareEl(m.to)?.classList.add('target'); // CSS draws dot
+  clearLegalTargets();
+  const moves = game.moves({ square: fromSq, verbose:true }) || [];
+  const cell = currentCell();
+
+  for (const m of moves){
+    const to = m.to;
+    // Keep the .target class for semantics/back-compat
+    squareEl(to)?.classList.add('target');
+
+    // If the target square is currently occupied, draw an overlay dot above the piece
+    if (game.get(to)){
+      const dot = document.createElement('div');
+      dot.className = 'legal-dot';
+      dot.dataset.square = to;
+      placeDotAt(dot, to, cell);
+      piecesLayer.appendChild(dot); // sits above pieces
+    }
   }
-  function clearLegalTargets(){
-    $all('.square.target').forEach(n => n.classList.remove('target'));
-  }
+}
+
+function clearLegalTargets(){
+  $all('.square.target').forEach(n => n.classList.remove('target'));
+  $all('.legal-dot', piecesLayer).forEach(n => n.remove());
+}
+
 
   function applyLastMoveHighlight(){
     if (!lastMove) return;
@@ -329,6 +348,22 @@ function applyCheckMateRings(){
     node.style.lineHeight = `${cell}px`;
     node.style.fontSize = `${cell * 0.9}px`;
   }
+ 
+  function placeDotAt(node, square, cell){
+    const [x, y] = sqToXY(square);
+    node.style.left = `${(x + 0.5) * cell}px`;
+    node.style.top  = `${(7 - y + 0.5) * cell}px`;
+    const d = cell * 0.26;   // dot size (26% of a cell)
+    node.style.width  = `${d}px`;
+    node.style.height = `${d}px`;
+  }
+
+function positionAllDots(cell){
+  $all('.legal-dot', piecesLayer).forEach(node => {
+    const sq = node.dataset.square;
+    if (sq) placeDotAt(node, sq, cell);
+  });
+}
 
   function makePieceNode(p, square){
     const d = document.createElement('div');
