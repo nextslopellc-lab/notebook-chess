@@ -11,6 +11,10 @@
 ============================================================================ */
 
 (function () {
+  // ------------------------ DOM query helpers ------------------------
+  function el(sel, root=document) { return root.querySelector(sel); }
+  function $all(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
+
   // ---------------------------- DOM refs & constants -------------------------
   const boardEl = ensureBoardContainer(); // will find #board or create one at top of body
   const squaresLayer = el('.squares') || makeLayer('squares'); // grid layer
