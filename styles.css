@@ -1,177 +1,139 @@
-:root {
+:root{
   --board-size: min(92vw, 560px);
-  --sq: calc(var(--board-size) / 8);
   --light: #f0d9b5;
-  --dark: #b58863;
-  --accent: #3a86ff;
-  --accent-soft: rgba(58,134,255,.22);
-  --last: #ffd54f88;
-  --move: #8bc34a88;
-  --legal-dot: #000;
-  --check-ring: #e53935;
-  --mate-ring: #b71c1c;
-  --piece-white-fill: #ffffff;
-  --ring-radius: 10%; /* ring inset */
+  --dark:  #b58863;
+
+  --move: rgba(72, 187, 255, 0.25);
+  --last: rgba(255, 225, 0, 0.28);
+
+  --check: #e53935;
+  --mate:  #b71c1c;
 }
 
-/* Check / Mate ring on the king square */
-.square.check::after,
-.square.mate::after{
-  content: "";
-  position: absolute;
-  inset: var(--ring-radius);
-  border-radius: 12%;
-  border: 3px solid var(--check-ring);
-  box-shadow: 0 0 8px var(--check-ring);
-  pointer-events: none;
-}
-.square.mate::after{
-  border-color: var(--mate-ring);
-  box-shadow: 0 0 10px var(--mate-ring), 0 0 20px var(--mate-ring);
-  animation: matePulse 1s ease-in-out infinite;
-}
-@keyframes matePulse{
-  0%,100%{ transform: scale(1); opacity: 1; }
-  50%{ transform: scale(1.03); opacity: 0.9; }
-}
+/* Layout */
+html, body { margin:0; padding:0; }
+body { background:#0b0f14; color:#e7e7e7; font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
-/* Improve visibility of white pieces without changing DOM:
-   add a soft disc behind the Unicode glyph so the “hollow” areas read solid */
-.piece.white{
-  position: absolute; /* your pieces already are positioned; keep this consistent */
+.topbar {
+  display:flex; gap:8px; align-items:center;
+  padding:10px 12px; background:#10161e; border-bottom:1px solid #1d2733;
 }
-.piece.white::before{
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 76%; height: 76%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--piece-white-fill);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.35) inset; /* subtle edge for light squares */
-  z-index: 0;
-}
-.piece.white > span{
-  position: relative; z-index: 1;
-  /* make outlines read a touch bolder */
-  -webkit-text-stroke: 0.6px rgba(0,0,0,0.75);
-  text-shadow: 0 0 1px rgba(0,0,0,0.4);
-}
+.topbar .spacer { flex:1; }
+.topbar button { background:#1b2430; color:#e7e7e7; border:1px solid #263343; border-radius:10px; padding:8px 12px; }
 
-/* Minimal overlay styling */
-.overlay.hidden{ display: none; }
-.overlay{
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-  display: grid; place-items: center; z-index: 9999;
-}
-.overlay-card{
-  background: #fff; color: #111;
-  width: min(92vw, 520px);
-  padding: 16px; border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-}
-.overlay-card h2{ margin-top: 0; }
-.overlay-card .home-actions{
-  display: grid; gap: 8px; margin: 12px 0 8px;
-}
-.overlay-card button[disabled]{ opacity: 0.5; cursor: not-allowed; }
+.stage { display:grid; place-items:center; padding:14px 0 24px; }
 
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  background: #0f1115; color: #eaeef7;
-}
-
-.topbar { display:flex; justify-content:space-between; align-items:center; padding:.75rem 1rem; border-bottom:1px solid #1d2230; }
-
-.stage { display:grid; place-items:center; padding:1rem; }
-
+/* Board */
 .board {
   position: relative;
   width: var(--board-size);
   height: var(--board-size);
-  border-radius: 1rem;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
-  border: 1px solid #1d2230;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  touch-action: manipulation;
+  user-select:none;
 }
 
-/* Checkerboard */
-.board::before { content:""; position:absolute; inset:0; z-index:1; background:none; }
+.squares { position:absolute; inset:0; z-index:1; }
+.pieces  { position:absolute; inset:0; z-index:3; pointer-events:none; }
 
+/* Each square (absolutely positioned by JS) */
+.square { position:absolute; z-index:2; pointer-events:auto; }
 .square.light { background: var(--light); }
 .square.dark  { background: var(--dark); }
 
-/* =================== Board Layers & Squares =================== */
-/* Container layers (parent .board should be position:relative) */
-.squares { position: absolute; inset: 0; z-index: 1; }
-.pieces  { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-
-/* Each square (absolutely positioned by JS; width/height set in JS) */
-.square { position: absolute; z-index: 2; pointer-events: auto; }
-
-/* =================== Pieces =================== */
-/* Base piece node (keep smooth move animation) */
+/* Pieces (Unicode glyphs inside .piece > span) */
 .piece {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  user-select: none;
-  pointer-events: none;        /* clicks go to .square */
+  position:absolute;
+  display:grid; place-items:center;
+  user-select:none;
+  pointer-events:none;               /* clicks pass to .square */
   transition: left .18s ease, top .18s ease;
 }
+.piece span { line-height:1; }
 
-/* Per-side text color (don’t set color on .piece directly) */
-.piece.white > span { color: #fafafa; }
-.piece.black > span { color: #111; }
+/* Color per side (don’t set color on .piece) */
+.piece.white > span { color:#fafafa; }
+.piece.black > span { color:#111; }
 
-/* Glyph baseline */
-.piece span { line-height: 1; }
-
-/* (Optional) If you still want the white readability disc, uncomment:
+/* --- Optional: soft helper for white visibility (comment back in later if you want)
 .piece.white::before{
-  content:"";
-  position:absolute;
-  left:50%; top:50%;
-  width:64%; height:64%;
-  transform:translate(-50%,-50%);
-  border-radius:50%;
-  background:rgba(255,255,255,0.9);
-  box-shadow:0 0 0 1px rgba(0,0,0,0.25) inset;
-  z-index:0;
+  content:""; position:absolute; left:50%; top:50%;
+  width:64%; height:64%; transform:translate(-50%,-50%);
+  border-radius:50%; background:rgba(255,255,255,0.9);
+  box-shadow:0 0 0 1px rgba(0,0,0,0.25) inset; z-index:0;
 }
-.piece.white > span{
-  position:relative; z-index:1;
-  -webkit-text-stroke:0.6px rgba(0,0,0,0.7);
-  text-shadow:0 0 1px rgba(0,0,0,0.35);
+.piece.white > span{ position:relative; z-index:1;
+  -webkit-text-stroke:0.6px rgba(0,0,0,0.75); text-shadow:0 0 1px rgba(0,0,0,0.4);
 }
 */
 
-/* =================== Highlights =================== */
-/* Last move — JS uses .last-from / .last-to (keep old names mapped just in case) */
+/* Highlights */
 .square.last-from { box-shadow: inset 0 0 0 999px var(--move); }
 .square.last-to   { box-shadow: inset 0 0 0 999px var(--last); }
-.square.highlight-from { box-shadow: inset 0 0 0 999px var(--move); }
-.square.highlight-last { box-shadow: inset 0 0 0 999px var(--last); }
 
-/* Legal move indicator = centered black dot (single source of truth) */
-.square.target,
-.square.highlight-target{
-  background: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  position: relative;
+/* Legal move indicator = centered dot (no shaded squares) */
+.square.target{
+  background:none !important;
+  box-shadow:none !important;
+  outline:none !important;
+  position:relative;
 }
-.square.target::after,
-.square.highlight-target::after{
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 26%; height: 26%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #000;
-  opacity: 0.9;
-  pointer-events: none;
+.square.target::after{
+  content:"";
+  position:absolute; left:50%; top:50%;
+  width:26%; height:26%;
+  transform:translate(-50%, -50%);
+  border-radius:50%;
+  background:#000;
+  opacity:0.9;
+  pointer-events:none;
 }
+
+/* Check / Mate ring on king square */
+.square.check::after,
+.square.mate::after{
+  content:"";
+  position:absolute; inset:10%;
+  border-radius:12%;
+  border:3px solid var(--check);
+  box-shadow:0 0 8px var(--check);
+  pointer-events:none;
+}
+.square.mate::after{
+  border-color:var(--mate);
+  box-shadow:0 0 10px var(--mate), 0 0 20px var(--mate);
+  animation: matePulse 1s ease-in-out infinite;
+}
+@keyframes matePulse{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%{ transform:scale(1.03); opacity:0.9; }
+}
+
+/* Illegal nudge */
+.illegal { animation: nudge 160ms ease; }
+@keyframes nudge {
+  0% { transform: translateX(0); }
+  33%{ transform: translateX(-3px); }
+  66%{ transform: translateX(3px); }
+  100%{ transform: translateX(0); }
+}
+
+/* Status line */
+.status { margin-top:10px; color:#a8c1df; font-size:14px; }
+
+/* Overlay */
+.overlay.hidden{ display:none; }
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:grid; place-items:center; z-index:9999;
+}
+.overlay-card{
+  background:#fff; color:#111;
+  width:min(92vw,520px); padding:16px; border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);
+}
+.overlay-card h2 { margin:0 0 8px; }
+.overlay-card .home-actions{ display:grid; gap:8px; margin:12px 0 8px; }
+.overlay-card button[disabled]{ opacity:0.5; cursor:not-allowed; }
