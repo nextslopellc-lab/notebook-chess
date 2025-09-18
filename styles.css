@@ -149,19 +149,18 @@ body {
 */
 
 /* =================== Highlights =================== */
-/* Last move — align with JS classes (.last-from / .last-to) */
+/* Last move — JS uses .last-from / .last-to (keep old names mapped just in case) */
 .square.last-from { box-shadow: inset 0 0 0 999px var(--move); }
 .square.last-to   { box-shadow: inset 0 0 0 999px var(--last); }
-
-/* If you still have old classes elsewhere, you can keep them mapping: */
 .square.highlight-from { box-shadow: inset 0 0 0 999px var(--move); }
 .square.highlight-last { box-shadow: inset 0 0 0 999px var(--last); }
 
-/* Legal move indicator = centered black dot (replaces any border/outline) */
+/* Legal move indicator = centered black dot (single source of truth) */
 .square.target,
-.square.highlight-target {          /* support both class names */
-  outline: none !important;
+.square.highlight-target{
   background: none !important;
+  box-shadow: none !important;
+  outline: none !important;
   position: relative;
 }
 .square.target::after,
@@ -169,11 +168,10 @@ body {
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 28%; height: 28%;
+  width: 26%; height: 26%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #000;
-  opacity: 0.85;
+  opacity: 0.9;
   pointer-events: none;
 }
-
