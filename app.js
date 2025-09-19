@@ -86,14 +86,21 @@
       var action = btn.getAttribute('data-action');
       if (action === 'continue-game') {
         closeOverlayFn();
-      } else if (action === 'free-play') {
-        game = new ChessCtor();
-        window.game = game;
-        selectedFrom = null;
-        lastMove = null;
-        rerenderEverything();
-        closeOverlayFn();
-      } else {
+     } else if (action === 'free-play') {
+  // Notebook: start a fresh session/game if available
+  if (window.nb && window.nb.state && typeof window.nb.state.reset === 'function') {
+    try { window.nb.state.reset(); } catch(e) {}
+  }
+  if (window.nb && window.nb.log && typeof window.nb.log.onNewGame === 'function') {
+    try { window.nb.log.onNewGame(); } catch(e) {}
+  }
+
+  game = new ChessCtor();
+  window.game = game;
+  selectedFrom = null; lastMove = null;
+  rerenderEverything();
+  closeOverlayFn();
+} else {
         alert('Coming soon!');
       }
     }, false);
@@ -164,12 +171,19 @@
   }
 
   function onUndo(){
-    var undone = game.undo();
-    if (!undone) { flashIllegal(boardEl); return; }
-    selectedFrom = null;
-    clearLegalTargets();
-    rerenderEverything();
+  var undone = game.undo();
+  if (!undone) { flashIllegal(boardEl); return; }
+
+  // Notebook: log undo (safe if nb is missing)
+  if (window.nb && window.nb.log && typeof window.nb.log.onUndo === 'function') {
+    try { window.nb.log.onUndo(undone, game); } catch(e) {}
   }
+
+  selectedFrom = null;
+  clearLegalTargets();
+  rerenderEverything();
+}
+
 
   /* =========================================================================
      LAYOUT & RENDER
@@ -294,6 +308,11 @@
   function animateAndSync(move){
     // record last move
     lastMove = { from: move.from, to: move.to };
+
+    // Notebook: log this move (safe if nb is missing)
+if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
+  try { window.nb.log.onMove(move, game); } catch(e) { console.warn('nb.log.onMove failed', e); }
+}
 
     var cell = currentCell();
 
