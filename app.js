@@ -80,13 +80,35 @@
   }, false);
 
   if (homeOverlay) {
-    homeOverlay.addEventListener('click', function (e) {
-      var btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
-      if (!btn) return;
-      var action = btn.getAttribute('data-action');
-      if (action === 'continue-game') {
-        closeOverlayFn();
-     } else if (action === 'free-play') {
+   homeOverlay?.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+
+  const action = btn.getAttribute('data-action');
+
+  if (action === 'continue-game') {
+    closeOverlayFn();
+    return;
+  }
+
+  if (action === 'free-play') {
+    game = new Chess();
+    window.game = game;
+    selectedFrom = null;
+    lastMove = null;
+    rerenderEverything();
+
+    // start a new logging session
+    window.nb?.log?.startSession?.('free-play');
+
+    closeOverlayFn();
+    return;
+  }
+
+  alert('Coming soon!');
+});
+
+
   // Notebook: start a fresh session/game if available
   if (window.nb && window.nb.state && typeof window.nb.state.reset === 'function') {
     try { window.nb.state.reset(); } catch(e) {}
