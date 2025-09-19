@@ -7,33 +7,45 @@
   <title>Notebook Chess — Phase 1</title>
 
   <!-- DEV LOADER: always fetches fresh CSS/JS, and ensures chess.mjs loads before app.js -->
-  <script>
-    (async function () {
-      try {
-        // 1) load fresh CSS
-        const css = document.createElement('link');
-        css.rel = 'stylesheet';
-        css.href = 'styles.css?dev=' + Date.now();
-        document.head.appendChild(css);
+<script>
+(async function () {
+  try {
+    // 1) Load fresh CSS (keeps cache from biting us during dev)
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'styles.css?dev=' + Date.now();
+    document.head.appendChild(css);
 
-        // 2) load chess.mjs as module, then expose window.Chess
-        const mod = await import('./libs/chess.mjs?dev=' + Date.now());
-        window.Chess = mod.Chess;
+    // 2) Load chess.mjs as a module and expose window.Chess
+    const mod = await import('./libs/chess.mjs?dev=' + Date.now());
+    window.Chess = mod.Chess;
 
-        // 3) finally load app.js (defer-like behavior, after Chess is set)
-        const s = document.createElement('script');
-        s.src = 'app.js?dev=' + Date.now();
-        document.head.appendChild(s);
-      } catch (e) {
-        console.error('Boot loader error:', e);
-        // show a minimal message if something explodes very early
-        const msg = document.createElement('div');
-        msg.textContent = 'Boot error. See console.';
-        msg.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#fff;background:#000;';
-        document.body.appendChild(msg);
-      }
-    })();
-  </script>
+    // 3) Helper to load plain JS files in order
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const t = document.createElement('script');
+      t.src = src + '?dev=' + Date.now();
+      t.onload = resolve;
+      t.onerror = reject;
+      document.head.appendChild(t);
+    });
+
+    // 4) Load deps BEFORE app.js
+    await loadScript('state.js');
+    await loadScript('log.js');
+    // optional seeding later:
+    // await loadScript('data/openings-seed.js');
+
+    // 5) Finally load app.js last
+    await loadScript('app.js');
+  } catch (e) {
+    console.error('Boot loader error:', e);
+    const msg = document.createElement('div');
+    msg.textContent = 'Boot error. See console.';
+    msg.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#fff;background:#000;';
+    document.body.appendChild(msg);
+  }
+})();
+</script>
 </head>
 
 
