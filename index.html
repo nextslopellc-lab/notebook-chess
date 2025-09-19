@@ -6,48 +6,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Notebook Chess — Phase 1</title>
 
-  <!-- DEV LOADER: always fetches fresh CSS/JS, and ensures chess.mjs loads before app.js -->
-<script>
-(async function () {
-  try {
-    // 1) Load fresh CSS (keeps cache from biting us during dev)
-    const css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'styles.css?dev=' + Date.now();
-    document.head.appendChild(css);
+  <!-- DEV LOADER: cache-busts and enforces load order -->
+  <script>
+  (async function () {
+    try {
+      // 1) Load CSS (cache-busted)
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'styles.css?dev=' + Date.now();
+      document.head.appendChild(css);
 
-    // 2) Load chess.mjs as a module and expose window.Chess
-    const mod = await import('./libs/chess.mjs?dev=' + Date.now());
-    window.Chess = mod.Chess;
+      // 2) Load chess.mjs as ESM, expose window.Chess
+      const mod = await import('./libs/chess.mjs?dev=' + Date.now());
+      window.Chess = mod.Chess;
 
-    // 3) Helper to load plain JS files in order
-    const loadScript = (src) => new Promise((resolve, reject) => {
-      const t = document.createElement('script');
-      t.src = src + '?dev=' + Date.now();
-      t.onload = resolve;
-      t.onerror = reject;
-      document.head.appendChild(t);
-    });
+      // 3) Helper: load plain scripts in order (globals on window.*)
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        const t = document.createElement('script');
+        t.src = src + '?dev=' + Date.now();
+        t.onload = resolve;
+        t.onerror = reject;
+        document.head.appendChild(t);
+      });
 
-    // 4) Load deps BEFORE app.js
-    await loadScript('state.js');
-    await loadScript('log.js');
-    // optional seeding later:
-    // await loadScript('data/openings-seed.js');
+      // 4) Load deps BEFORE app.js
+      await loadScript('state.js');                  // sets window.nb.state
+      await loadScript('log.js');                    // sets window.nb.log
+      await loadScript('data/openings-seed.js');     // sets window.NB_OPENINGS_SEED
 
-    // 5) Finally load app.js last
-    await loadScript('app.js');
-  } catch (e) {
-    console.error('Boot loader error:', e);
-    const msg = document.createElement('div');
-    msg.textContent = 'Boot error. See console.';
-    msg.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#fff;background:#000;';
-    document.body.appendChild(msg);
-  }
-})();
-</script>
+      // 5) Finally load app.js last
+      await loadScript('app.js');
+    } catch (e) {
+      console.error('Boot loader error:', e);
+      const msg = document.createElement('div');
+      msg.textContent = 'Boot error. See console.';
+      msg.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#fff;background:#000;';
+      document.body.appendChild(msg);
+    }
+  })();
+  </script>
 </head>
-
 
   <body>
   <header class="topbar">
