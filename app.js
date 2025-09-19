@@ -170,14 +170,18 @@
     animateAndSync(m);
   }
 
-  function onUndo(){
-  var undone = game.undo();
+ function onUndo(){
+  const undone = game.undo();
   if (!undone) { flashIllegal(boardEl); return; }
 
-  // Notebook: log undo (safe if nb is missing)
-  if (window.nb && window.nb.log && typeof window.nb.log.onUndo === 'function') {
-    try { window.nb.log.onUndo(undone, game); } catch(e) {}
-  }
+  selectedFrom = null;
+  clearLegalTargets();
+  rerenderEverything();
+
+  // log the undo (uses your current API: window.nb.log)
+  try { window.nb && window.nb.log && window.nb.log.onUndo(game, undone); } catch {}
+}
+
 
   selectedFrom = null;
   clearLegalTargets();
