@@ -1,55 +1,54 @@
 /* ============================================================================
-  Notebook Chess - Stable Baseline (no engine)
-  - Plain JS, no frameworks. Uses window.Chess from libs/chess.mjs (index.html).
-  - Absolute-positioned squares; Unicode pieces (DOM: .piece > span).
-  - Input: tap-to-move; legal targets rendered as CENTER DOTS in the pieces layer,
-    so dots are visible on empty AND occupied squares.
-  - UX: last-move highlight; check/mate ring; status messages; undo/back.
-  - Overlay menu: Continue / New Free Play (others TBD).
-  - No optional chaining; no service worker; all local.
+  Notebook Chess — clean base (consolidated)
+  - Plain JS, no frameworks. Uses window.Chess from libs/chess.mjs (loaded first).
+  - Squares absolutely positioned; per-square colors; no gradients.
+  - Pieces are .piece divs with <span> Unicode glyphs.
+  - Tap-to-move, legal targets (pins respected via chess.js), castling via king.
+  - Undo: Back button + ArrowLeft.
+  - Highlights: last move (from & to), legal dots (center dot even on captures), check/mate ring.
+  - Overlay: Menu / Resign, Continue / New Free Play
+  - Optional logging hooks (window.nb.log)
 ============================================================================ */
 (function () {
   /* ---------- tiny DOM helpers ---------- */
-  function el(sel, root) { return (root || document).querySelector(sel); }
-  function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+  function el(sel, root=document) { return root.querySelector(sel); }
+  function $$ (sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
 
-  /* ---------- constants ---------- */
-  var FILES = ['a','b','c','d','e','f','g','h'];
+  /* ---------- constants & refs ---------- */
+  const FILES = ['a','b','c','d','e','f','g','h'];
 
-  /* ---------- refs ---------- */
-  var boardEl      = el('#board');
-  var squaresLayer = el('.squares');
-  var piecesLayer  = el('.pieces');
+  const boardEl      = el('#board');
+  const squaresLayer = el('.squares');
+  const piecesLayer  = el('.pieces');
 
-  var backBtn   = el('#backBtn');
-  var menuBtn   = el('#menuBtn');
-  var resignBtn = el('#resignBtn');
+  const backBtn   = el('#backBtn');
+  const menuBtn   = el('#menuBtn');
+  const resignBtn = el('#resignBtn');
 
-  var homeOverlay  = el('#homeOverlay');
-  var closeOverlay = el('#closeOverlay');
+  const homeOverlay  = el('#homeOverlay');
+  const closeOverlay = el('#closeOverlay');
 
-  // Prevent overlay from blocking clicks on first paint
+  const statusEl = el('#status');
+
+  // Force overlay hidden at boot (prevents it from catching clicks)
   if (homeOverlay) {
     homeOverlay.classList.add('hidden');
     homeOverlay.setAttribute('aria-hidden', 'true');
   }
 
-  var statusEl = el('#status');
-
-  /* ---------- chess lib guard ---------- */
-  var ChessCtor = window.Chess;
-  if (typeof ChessCtor !== 'function') {
-    if (statusEl) statusEl.textContent = 'Error: chess library failed to load.';
-    console.error('Chess library not available. Ensure libs/chess.mjs loads before app.js.');
+  // chess.js constructor (defensive)
+  var ChessCtor = window.Chess || window.ChessJS || window.ChessV2;
+  if (!ChessCtor) {
+    console.error('Chess library not found. Ensure libs/chess.mjs loads before app.js.');
     return;
   }
 
-  /* ---------- state ---------- */
+  /* ---------- game state ---------- */
   var game = new ChessCtor();
-  window.game = game; // console / debugging
+  window.game = game; // for console/debug
 
-  var selectedFrom = null; // "e2"
-  var lastMove = null;     // { from, to }
+  var selectedFrom = null;   // "e2"
+  var lastMove = null;       // {from, to}
 
   /* =========================================================================
      BOOT
@@ -61,18 +60,18 @@
   applyCheckMateRings();
   setStatusDefault();
 
-  // clicks/resize
+  // Clicks / resize
   (squaresLayer || boardEl).addEventListener('click', onBoardClick, false);
   window.addEventListener('resize', onResize, false);
 
-  // undo: Back button + ArrowLeft
+  // Undo: Back button + ArrowLeft
   if (backBtn) backBtn.addEventListener('click', onUndo, false);
   window.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') onUndo();
   }, false);
 
-  // overlay wiring
-  if (menuBtn)   menuBtn.addEventListener('click', openOverlay,  false);
+  // Overlay wiring
+  if (menuBtn)   menuBtn  .addEventListener('click', openOverlay, false);
   if (closeOverlay) closeOverlay.addEventListener('click', closeOverlayFn, false);
   if (resignBtn) resignBtn.addEventListener('click', function () {
     if (!confirm('Resign and return to menu?')) return;
@@ -80,51 +79,30 @@
   }, false);
 
   if (homeOverlay) {
-   homeOverlay?.addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-action]');
-  if (!btn) return;
+    homeOverlay.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
 
-  const action = btn.getAttribute('data-action');
-
-  if (action === 'continue-game') {
-    closeOverlayFn();
-    return;
-  }
-
-  if (action === 'free-play') {
-    game = new Chess();
-    window.game = game;
-    selectedFrom = null;
-    lastMove = null;
-    rerenderEverything();
-
-    // start a new logging session
-    window.nb?.log?.startSession?.('free-play');
-
-    closeOverlayFn();
-    return;
-  }
-
-  alert('Coming soon!');
-});
-
-
-  // Notebook: start a fresh session/game if available
-  if (window.nb && window.nb.state && typeof window.nb.state.reset === 'function') {
-    try { window.nb.state.reset(); } catch(e) {}
-  }
-  if (window.nb && window.nb.log && typeof window.nb.log.onNewGame === 'function') {
-    try { window.nb.log.onNewGame(); } catch(e) {}
-  }
-
-  game = new ChessCtor();
-  window.game = game;
-  selectedFrom = null; lastMove = null;
-  rerenderEverything();
-  closeOverlayFn();
-} else {
-        alert('Coming soon!');
+      if (action === 'continue-game') {
+        closeOverlayFn();
+        return;
       }
+
+      if (action === 'free-play') {
+        // new session for logs (optional)
+        try { window.nb && window.nb.log && window.nb.log.startSession && window.nb.log.startSession('free-play'); } catch {}
+
+        // reset game
+        game = new ChessCtor();
+        window.game = game;
+        selectedFrom = null; lastMove = null;
+        rerenderEverything();
+        closeOverlayFn();
+        return;
+      }
+
+      alert('Coming soon!');
     }, false);
   }
 
@@ -178,8 +156,11 @@
 
     // Try to move
     var m = null;
-    try { m = game.move({ from: selectedFrom, to: sq, promotion: 'q' }); } catch (_) { m = null; }
-
+    try {
+      m = game.move({ from: selectedFrom, to: sq, promotion: 'q' });
+    } catch (_) {
+      m = null;
+    }
     if (!m) {
       flashIllegal(sqEl);
       statusFlash('Illegal move', 900);
@@ -192,24 +173,16 @@
     animateAndSync(m);
   }
 
- function onUndo(){
-  const undone = game.undo();
-  if (!undone) { flashIllegal(boardEl); return; }
+  function onUndo(){
+    var undone = game.undo();
+    if (!undone) { flashIllegal(boardEl); return; }
+    selectedFrom = null;
+    clearLegalTargets();
+    rerenderEverything();
 
-  selectedFrom = null;
-  clearLegalTargets();
-  rerenderEverything();
-
-  // log the undo (uses your current API: window.nb.log)
-  try { window.nb && window.nb.log && window.nb.log.onUndo(game, undone); } catch {}
-}
-
-
-  selectedFrom = null;
-  clearLegalTargets();
-  rerenderEverything();
-}
-
+    // log undo (optional)
+    try { window.nb && window.nb.log && window.nb.log.onUndo && window.nb.log.onUndo(game, undone); } catch {}
+  }
 
   /* =========================================================================
      LAYOUT & RENDER
@@ -282,71 +255,96 @@
 
   /* =========================================================================
      LEGAL TARGET DOTS (overlay in pieces layer, above pieces)
-     - No CSS required; styled inline so capture squares also show a dot.
+     No CSS required; styled inline so capture squares also show a dot.
   ========================================================================= */
   function showLegalTargets(fromSq){
     clearLegalTargets();
-    var moves = game.moves({ square: fromSq, verbose: true }) || [];
+    var moves = [];
+    try { moves = game.moves({ square: fromSq, verbose:true }) || []; } catch(_){ moves = []; }
     var cell = currentCell();
-    for (var i = 0; i < moves.length; i++){
-      var to = moves[i].to;
+    for (var i=0; i<moves.length; i++){
+      var m = moves[i];
       var dot = document.createElement('div');
-      dot.className = 'legal-dot';
-      dot.dataset.square = to;
-
-      // inline style (keeps styles.css unchanged)
+      dot.className = 'dot';
+      dot.dataset.square = m.to;
+      // style
       dot.style.position = 'absolute';
-      dot.style.zIndex = '4';
+      dot.style.width = (cell * 0.26) + 'px';
+      dot.style.height = (cell * 0.26) + 'px';
       dot.style.borderRadius = '50%';
       dot.style.background = '#000';
       dot.style.opacity = '0.9';
-      dot.style.pointerEvents = 'none';
-      // size/position
-      placeDotAt(dot, to, cell);
-
+      dot.style.pointerEvents = 'none'; // don't block clicks
+      placeDotNode(dot, m.to, cell);
       piecesLayer.appendChild(dot);
     }
   }
   function clearLegalTargets(){
-    var dots = $all('.legal-dot', piecesLayer);
-    for (var i = 0; i < dots.length; i++) dots[i].remove();
-  }
-  function placeDotAt(node, square, cell){
-    var xy = sqToXY(square);
-    node.style.left = ((xy[0] + 0.5) * cell) + 'px';
-    node.style.top  = ((7 - xy[1] + 0.5) * cell) + 'px';
-    var d = cell * 0.26;
-    node.style.width = d + 'px';
-    node.style.height = d + 'px';
-    node.style.transform = 'translate(-50%, -50%)';
+    $$('.dot', piecesLayer).forEach(function(n){ n.remove(); });
   }
   function positionAllDots(cell){
-    var nodes = $all('.legal-dot', piecesLayer);
-    for (var i = 0; i < nodes.length; i++){
-      var sq = nodes[i].dataset.square;
-      placeDotAt(nodes[i], sq, cell);
-    }
+    $$('.dot', piecesLayer).forEach(function(n){
+      var sq = n.dataset.square;
+      placeDotNode(n, sq, cell);
+    });
+  }
+  function placeDotNode(node, square, cell){
+    var xy = sqToXY(square);
+    node.style.left = (xy[0] * cell + (cell*0.5) - (cell*0.13)) + 'px';
+    node.style.top  = ((7 - xy[1]) * cell + (cell*0.5) - (cell*0.13)) + 'px';
   }
 
   /* =========================================================================
-     MOVES / ANIMATION / HIGHLIGHTS
+     HIGHLIGHTS
+  ========================================================================= */
+  function applyLastMoveHighlight(){
+    if (!lastMove) return;
+    squareEl(lastMove.from)?.classList.add('last-from');
+    squareEl(lastMove.to)?.classList.add('last-to');
+  }
+  function clearLastMoveHighlight(){
+    $$('.square.last-from').forEach(function(n){ n.classList.remove('last-from'); });
+    $$('.square.last-to').forEach(function(n){ n.classList.remove('last-to'); });
+  }
+
+  function applyCheckMateRings(){
+    clearCheckMateRings();
+    // support both API spellings across chess.js versions
+    var inCheckmate = (typeof game.in_checkmate === 'function') ? game.in_checkmate() :
+                      (typeof game.isCheckmate   === 'function') ? game.isCheckmate() : false;
+    var inCheck     = (typeof game.in_check     === 'function') ? game.in_check()     :
+                      (typeof game.isCheck      === 'function') ? game.isCheck()      : false;
+
+    if (inCheckmate){
+      var mated = game.turn(); // side to move is mated
+      var ksq = findKingSquare(mated);
+      if (ksq) squareEl(ksq)?.classList.add('mate');
+      setStatus('Checkmate.');
+      return;
+    }
+    if (inCheck){
+      var side = game.turn();
+      var ksq2 = findKingSquare(side);
+      if (ksq2) squareEl(ksq2)?.classList.add('check');
+      setStatus('Check.');
+      return;
+    }
+  }
+  function clearCheckMateRings(){
+    $$('.square.check').forEach(function(n){ n.classList.remove('check'); });
+    $$('.square.mate').forEach(function(n){ n.classList.remove('mate'); });
+  }
+
+  /* =========================================================================
+     MOVES & ANIMATION
   ========================================================================= */
   function animateAndSync(move){
     // record last move
     lastMove = { from: move.from, to: move.to };
 
-    // Notebook: log this move (safe if nb is missing)
-if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
-  try { window.nb.log.onMove(move, game); } catch(e) { console.warn('nb.log.onMove failed', e); }
-}
-
     var cell = currentCell();
 
-    // if capture, remove captured node first so animation looks clean
-    var capturedNode = piecesLayer.querySelector('.piece[data-square="' + move.to + '"]');
-    if (capturedNode) capturedNode.remove();
-
-    // handle castling rook animation (where supported on current chess.js)
+    // handle rook animation on castling
     try {
       if (typeof move.isKingsideCastle === 'function' && move.isKingsideCastle()){
         var rf = (move.color === 'w') ? 'h1' : 'h8';
@@ -361,19 +359,24 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
       }
     } catch(_) {}
 
-    // move the piece node (CSS transition handles smoothness)
-    var movedNode = piecesLayer.querySelector('.piece[data-square="' + move.from + '"]');
-    var nowAtTo = game.get(move.to); // after game.move, board is updated
+    // move the piece node
+    var nowAtTo = game.get(move.to);
+    var movedNode =
+      piecesLayer.querySelector('.piece[data-square="' + move.from + '"]') ||
+      null;
+
     if (movedNode && nowAtTo){
       movedNode.dataset.square = move.to;
       movedNode.dataset.type   = nowAtTo.type;
       movedNode.dataset.color  = nowAtTo.color;
-      var span = movedNode.querySelector('span');
-      if (span) span.textContent = unicodeFor(nowAtTo);
+      movedNode.querySelector('span').textContent = unicodeFor(nowAtTo);
       placePieceNode(movedNode, move.to, cell);
     }
 
-    // small delay: resync pieces + highlights (promotion/EP etc.)
+    // log move (optional)
+    try { window.nb && window.nb.log && window.nb.log.onMove && window.nb.log.onMove(game, move); } catch {}
+
+    // re-render to sync captures/highlights
     setTimeout(function(){
       renderAllPieces();
       clearLastMoveHighlight();
@@ -384,45 +387,8 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
     }, 120);
   }
 
-  // last-move highlight
-  function applyLastMoveHighlight(){
-    if (!lastMove) return;
-    var a = squareEl(lastMove.from); if (a) a.classList.add('last-from');
-    var b = squareEl(lastMove.to);   if (b) b.classList.add('last-to');
-  }
-  function clearLastMoveHighlight(){
-    var a = $all('.square.last-from'); for (var i=0;i<a.length;i++) a[i].classList.remove('last-from');
-    var b = $all('.square.last-to');   for (var j=0;j<b.length;j++) b[j].classList.remove('last-to');
-  }
-
-  // check / mate rings
-  function applyCheckMateRings(){
-    clearCheckMateRings();
-    var inMate  = (typeof game.isCheckmate === 'function') ? game.isCheckmate() : (game.in_checkmate ? game.in_checkmate() : false);
-    var inCheck = (typeof game.isCheck     === 'function') ? game.isCheck()     : (game.in_check     ? game.in_check()     : false);
-
-    if (inMate){
-      var matedColor = game.turn(); // side to move is mated
-      var ksqM = findKingSquare(matedColor);
-      if (ksqM) { var mEl = squareEl(ksqM); if (mEl) mEl.classList.add('mate'); }
-      setStatus('Checkmate.');
-      return;
-    }
-    if (inCheck){
-      var side = game.turn();
-      var ksq = findKingSquare(side);
-      if (ksq) { var cEl = squareEl(ksq); if (cEl) cEl.classList.add('check'); }
-      setStatus('Check.');
-      return;
-    }
-  }
-  function clearCheckMateRings(){
-    var c = $all('.square.check'); for (var i=0;i<c.length;i++) c[i].classList.remove('check');
-    var m = $all('.square.mate');  for (var j=0;j<m.length;j++) m[j].classList.remove('mate');
-  }
-
   /* =========================================================================
-     LAYOUT UTILS
+     UTILITIES
   ========================================================================= */
   function onResize(){ layoutBoard(); }
 
@@ -432,11 +398,10 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
   }
 
   function positionAllPieceNodes(cell){
-    var nodes = $all('.piece', piecesLayer);
-    for (var i = 0; i < nodes.length; i++){
-      var sq = nodes[i].dataset.square;
-      if (sq) placePieceNode(nodes[i], sq, cell);
-    }
+    $$('.piece', piecesLayer).forEach(function(node){
+      var sq = node.dataset.square;
+      if (sq) placePieceNode(node, sq, cell);
+    });
   }
 
   function placePieceNode(node, square, cell){
@@ -458,6 +423,7 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
     var span = document.createElement('span');
     span.textContent = unicodeFor(p);
     d.appendChild(span);
+    // NOTE: .piece has pointer-events:none in CSS so clicks go to .square
     return d;
   }
 
@@ -498,19 +464,12 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
     return null;
   }
 
-  /* =========================================================================
-     STATUS / UX
-  ========================================================================= */
   function setStatus(text){ if (statusEl) statusEl.textContent = text || ''; }
   function turnText(){ return game.turn() === 'w' ? 'White' : 'Black'; }
   function setStatusDefault(){
-    // honor any previous explicit "Checkmate." set by applyCheckMateRings()
-    var inMate = (typeof game.isCheckmate === 'function') ? game.isCheckmate() : (game.in_checkmate ? game.in_checkmate() : false);
-    if (inMate) return;
-    if (typeof game.isDraw === 'function' ? game.isDraw() : (game.in_draw && game.in_draw())) {
-      setStatus('Draw.');
-      return;
-    }
+    if (typeof game.in_checkmate === 'function' && game.in_checkmate()) return; // already set “Checkmate.”
+    if (typeof game.isCheckmate   === 'function' && game.isCheckmate()) return;
+    if ((game.in_draw && game.in_draw()) || (game.isDraw && game.isDraw())) { setStatus('Draw.'); return; }
     setStatus(turnText() + ' to move.');
   }
   function statusFlash(msg, ms){
@@ -521,7 +480,7 @@ if (window.nb && window.nb.log && typeof window.nb.log.onMove === 'function') {
 
   function pieceName(p){
     var n={p:'Pawn',r:'Rook',n:'Knight',b:'Bishop',q:'Queen',k:'King'};
-    return n[p && p.type] || '?';
+    return n[p && p.type]||'?';
   }
 
   function flashIllegal(targetEl){
