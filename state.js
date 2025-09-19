@@ -1,20 +1,17 @@
-// state.js
-(function(){
-  const KEY = 'nb.state.v1';
-  const DEFAULT = { mode: 'free-play', feedback: 'post-game' }; // post-game | phase | live
+// [nb] state v1 — minimal session counters; no storage yet
+(function () {
+  const nb = (window.nb = window.nb || {});
 
-  function load(){
-    try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY)||'{}') }; }
-    catch { return { ...DEFAULT }; }
-  }
-  function save(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
-
-  const state = load();
-  window.NBState = {
-    get(){ return { ...state }; },
-    set(patch){ Object.assign(state, patch); save(state);
-      document.dispatchEvent(new CustomEvent('nb:state', { detail: { ...state } })); },
-    setMode(m){ this.set({ mode: m }); },
-    setFeedback(f){ this.set({ feedback: f }); }
+  const state = {
+    gamesStarted: 0,
+    movesPlayed: 0,
+    undos: 0,
+    reset() {
+      // called when user taps "New Free Play"
+      state.movesPlayed = 0;
+      state.undos = 0;
+    },
   };
+
+  nb.state = state;
 })();
